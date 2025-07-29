@@ -11,7 +11,6 @@ The goal: to understand **whether modern food retailers are displacing tradition
 ## 📊 Data Source
 
 * **DENUE (Directorio Estadístico Nacional de Unidades Económicas)** by INEGI, Mexico
-* Two snapshots: **2010** and **2019**, covering food retail businesses in Mexico City.
 
 Key preprocessing challenges:
 

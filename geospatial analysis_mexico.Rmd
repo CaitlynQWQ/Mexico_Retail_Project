@@ -1,0 +1,174 @@
+---
+title: "Geospatial Research"
+author: "Caitlyn Cai"
+date: "2023-02-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#library(spData)
+library(dplyr)
+library(tidyverse)
+library(sf)
+library(raster)
+library(terra)
+library(tmap)
+library(data.table)
+library(sp)
+library(maptools)
+library(spatstat)
+```
+
+
+# sf for single band
+st_read()
+read map data, such as .shp
+read vector data
+# raster for multiple band
+read raster data
+``raster()``
+``brick()``
+
+```{r}
+data <- fread("D:/Download/denue_09_2010.csv")
+data
+
+data20 <- fread("D:/Download/denue_09_2022_11.csv")
+data20
+```
+
+```{r}\
+
+
+```{r}
+check01 <- data %>% 
+  filter(str_detect(data$nom_estab, regex("ABARROTES|abarroterias", ignore_case = T))) %>% 
+  filter(codigo_act != 461110)
+check01
+reassign01 <- check01 %>% mutate(codigo_act = 461110)
+
+check02 <- data %>% 
+  filter(str_detect(data$nom_estab, regex("MINISUPERS|MINI SUPER|MINISUPER", ignore_case = T))) %>% 
+  filter(codigo_act != 462112) %>% filter(codigo_act != 461110)
+check02
+reassign02 <- check02 %>% mutate(codigo_act = 462112)
+
+check03 <- data %>% 
+  filter(str_detect(data$nom_estab, regex("polleria|tortilleria", ignore_case = T))) %>% 
+  filter(codigo_act != 461190)
+check03
+reassign03 <- check03 %>% mutate(codigo_act = 461190)
+
+check04 <- data %>% 
+  filter(str_detect(data$nom_estab, regex("7 ELEVEN|7ELEVEN", ignore_case = T))) %>% 
+  filter(codigo_act != 462112) %>% mutate(codigo_act = 462112) # 0
+
+check05 <- data %>% 
+  filter(str_detect(data$nom_estab, ".*\\bOXXO\\b.*")) %>% 
+  filter(codigo_act != 462112) %>% mutate(codigo_act = 462112)
+check05
+reassign05 <- check05 %>% mutate(codigo_act =  462112)
+
+```
+
+```{r}
+# Export File.
+combine <- rbind(ori_check, reassign01, reassign02, reassign03, reassign05)
+write.csv(combine, "D:/Download/clean_week02.csv", row.names=FALSE)
+
+combine
+```
+
+# Week 04 03/05/2023  
+
+```{r}
+library(sp)
+library(maptools)
+library(spatstat)
+library(sf)
+library(foreign)
+library(ggplot2)
+library(dplyr)
+df10 <- read.csv("D:/Download/df10.csv")
+df20 <- read.csv("D:/Download/df20.csv")
+
+partial_10 <- dplyr::select(df10, c('longitud','latitud', 'year'))
+partial_20 <- dplyr::select(df20, c('longitud','latitud', 'year'))
+combine <- rbind(partial_10,filter(partial_20, partial_20$latitud > 19))
+# sort(partial_10$longitud, decreasing = FALSE), all correct
+sort(partial_20$longitud, decreasing = FALSE)
+sort(partial_20$latitud, decreasing = FALSE)
+
+# 13 location points from df20.csv seem to be incorrect.
+
+problem <- filter(df20, df20$latitud < 19)
+```
+
+
+```{r}
+write.csv(problem, "D:/Download/13_offpoints.csv", row.names=FALSE)
+```
+
+
+## Write out My shape file  
+
+```{}
+
+WGScoor<- df10
+coordinates(WGScoor)=~longitud + latitud
+proj4string(WGScoor)<- CRS("+proj=longlat +datum=WGS84")
+
+LLcoor<-spTransform(WGScoor,CRS("+proj=longlat"))
+raster::shapefile(LLcoor, "D:/Download/MyShapefile_10.shp")
+
+
+WGScoor<- df20
+coordinates(WGScoor)=~longitud + latitud
+proj4string(WGScoor)<- CRS("+proj=longlat +datum=WGS84")
+
+LLcoor<-spTransform(WGScoor,CRS("+proj=longlat"))
+raster::shapefile(LLcoor, "D:/Download/MyShapefile_20.shp")
+```
+
+
+## Identify births and deaths
+
+### Attempt 01
+```{r}
+shp <- st_read("D:/Download/mx_city.shp")
+points10 <- st_read("D:/Download/MyShapefile_10.shp")
+plot(shp$geometry, main = "Stores in 2010")
+plot(points, pch = 1, cex = 0.5,color = "blue", add = T)
+
+
+shp <- st_read("D:/Download/mx_city.shp")
+points20 <- st_read("D:/Download/MyShapefile_20.shp")
+plot(shp$geometry, main = "Stores in 2020")
+plot(points, pch = 1, cex = 0.5, color = "blue", add = T)
+```
+
+## Attempt 02
+```{r}
+library(mapview)
+df10 <- df10 %>% glimpse()
+mapview(df10, xcol = "longitud", ycol = "latitud", crs = 4269, grid = FALSE)
+mapview(shp)
+```
+
+
+```{r}
+mapview(list(shp,points),xcol = "longitud", ycol = "latitud",
+        layer.name = c("Mexcian City", "Stores Location"))
+```
+
+
+## Attempt 03
+```{r}
+df10 <- st_as_sf(df10, coords = c('longitud', 'latitud'))
+ggplot(df10) + geom_sf(aes())+ xlim(-99.5,-98.9) + ylim(19.1,19.8)
+
+
+df20 <- st_as_sf(df20, coords = c('longitud', 'latitud'))
+ggplot(df20) + geom_sf(aes()) + xlim(-99.5,-98.9) + ylim(19.1,19.8)
+```

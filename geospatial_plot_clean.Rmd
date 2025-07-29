@@ -1,0 +1,263 @@
+---
+title: "Geospacial_Plotting"
+author: "Caitlyn Cai"
+date: "2023-04-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(sf)
+```
+
+
+```{r setup, include=FALSE}
+# library(GIStool)
+```
+
+To be clear, for next Monday April 24:
+
+
+
+```{r}
+data <- read.csv("D:/Download/df_total_clean.csv")
+data %>% filter(y2010 == 0)
+```
+```{r}
+library(giscoR)
+library(sf)
+library(dplyr)
+
+# Different resolutions
+DNK_res60 <- gisco_get_countries(resolution = "60", country = "DNK") %>%
+  mutate(res = "60M")
+DNK_res20 <-
+  gisco_get_countries(resolution = "20", country = "DNK") %>%
+  mutate(res = "20M")
+DNK_res10 <-
+  gisco_get_countries(resolution = "10", country = "DNK") %>%
+  mutate(res = "10M")
+DNK_res03 <-
+  gisco_get_countries(resolution = "03", country = "DNK") %>%
+  mutate(res = "03M")
+
+
+DNK_all <- bind_rows(DNK_res60, DNK_res20, DNK_res10, DNK_res03)
+
+# Plot ggplot2
+
+library(ggplot2)
+
+ggplot(DNK_all) +
+  geom_sf(fill = "tomato") +
+  facet_wrap(vars(res)) +
+  theme_minimal()
+```
+
+```{}
+# 加载必要的软件包
+library(sf)
+library(ggplot2)
+
+shop_2010 <- st_read("path/to/2010_shop_data.shp")
+shop_2020 <- st_read("path/to/2020_shop_data.shp")
+
+shop_all <- rbind(shop_2010, shop_2020)
+
+map <- ggplot() +
+  geom_sf(data = street_data) +
+  geom_sf(data = building_data) +
+  theme_void()
+
+map <- map +
+  geom_sf(data = shop_all, aes(color = year, shape = status))
+
+
+map <- map +
+  labs(title = "Commercial Shop Changes in Mexico City",
+       subtitle = "2010 vs. 2020",
+       color = "Year",
+       shape = "Status")
+
+map
+
+# 加载必要的软件包
+library(sf)
+library(ggplot2)
+library(RColorBrewer)
+
+# 读取商铺数据
+shop_data <- st_read("path/to/shop_data.shp")
+
+# 将经纬度转换为空间点
+shop_points <- st_as_sf(shop_data, coords = c("longitude", "latitude"), crs = 4326)
+
+# 转换点数据为栅格数据
+grid_size <- 0.01 # 栅格大小
+shop_grid <- st_make_grid(shop_points, cellsize = c(grid_size, grid_size), what = "centers")
+shop_grid_count <- st_intersects(shop_points, shop_grid) %>% group_by(cell) %>% summarize(count = n())
+
+# 绘制分层图
+color_pal <- brewer.pal(9, "YlGnBu") # 颜色梯度
+ggplot() +
+  geom_sf(data = shop_grid_count, aes(fill = count)) +
+  scale_fill_gradientn(colours = color_pal) +
+  labs(title = "Commercial Shop Density",
+       subtitle = "Mexico City, 2010-2020",
+       fill = "Density") +
+  theme_void()
+```
+2010 / 2020 年的商铺密度地图（各类）
+2010-2020 消亡的商铺
+2010-2020 新生的商铺
+（附趋势统计）
+```{r}
+library(sp)
+library(maptools)
+library(spatstat)
+```
+
+```{r}
+chipoint	<- readShapeSpatial("D:/Download/chicago_points/chicago_sup.shp")
+#class(chipoint)
+#summary(chipoint)
+#plot(chipoint) # data point
+
+chibnd <- readShapeSpatial("D:/Download/chicago_points/ChicagoBoundary.shp")
+#plot(chibnd) # shape of map
+
+plot(chibnd,	main="Chicago	Grocery	Stores")
+plot(chipoint, pch=1,cex=0.5,col="blue",add=T) # pch shape of points, cex size
+
+chipt1	<- as.ppp(chipoint)
+summary(chipt1)
+plot(chipt1) # need to unmark
+chiptonly <- unmark(chipt1)
+plot(chiptonly)
+
+chib <- as.owin(chibnd)
+chi2	<- chiptonly[chib]
+plot(chi2,main="Chicago	Grocery	Stores",cex=0.5,cols="blue")
+```
+
+# Coordinate  
+```{r}
+xy <- coords(chiptonly)
+
+X <- xy$x
+Y <- xy$y
+cb <- boundingbox(chi2)
+plot(cb)
+
+ch	<- convexhull(chi2)
+class(ch) # 'owin'
+plot(ch)
+
+chipt10	<- ppp(X,Y,window=cb)
+plot(chipt10,main="Chicago	Grocery	Stores",cex=0.5,cols="blue")
+
+chipt30	<- ppp(X,Y,window=chib)
+plot(chipt30,main="Chicago	Grocery	Stores",cex=0.5,cols="blue")
+
+qc <- quadratcount(chi2)
+plot(qc)
+plot(chib,main="Chicago	Grocery	Stores")
+plot(intensity(qc,image=TRUE),box=FALSE,ribbon=TRUE,add=T)
+plot(chi2,cex=0.5,cols="green",add=T)
+```
+
+
+# Centrography
+quadrat count, Kdensity, min MSE, max lke, cum dist, adap dens.
+
+# Kernel density plot  
+
+```{r}
+library(sp)
+# library(aspace)
+library(maptools)
+library(plotrix)
+```
+```{r}
+
+
+chibnd <- readShapeSpatial("D:/Download/chicago_points/ChicagoBoundary.shp")
+
+chib	<- as.owin(chibnd)
+class(chib)
+chipoint	<- readShapeSpatial("D:/Download/chicago_points/chicago_sup.shp")
+chipt1	<- as.ppp(chipoint)
+chiptonly	<- unmark(chipt1)
+chi2	<- chiptonly[chib]
+plot(chi2,main="Chicago	Grocery	Stores",cex=0.5,cols="blue")
+
+dd1	<- density(chi2)
+summary(dd1)
+plot(chib,main="Chicago	Grocery	Stores")
+plot(dd1,box=FALSE,ribbon=TRUE,add=T)
+plot(chi2,cex=0.5,cols="green",add=T)
+```
+
+# Minimum squared error
+
+```{r}
+bw1	<- bw.diggle(chi2)
+plot(bw1)
+plot(chib,main="Chicago	Grocery	Stores	- Min	MSE")
+plot(density(chi2,sigma=bw1),box=FALSE,ribbon=TRUE,add=T)
+plot(chi2,cex=0.5,cols="green",add=T)
+```
+# Maximizing the likelihood  
+
+```{r}
+
+bw2	<- bw.ppl(chi2)
+plot(bw2)
+plot(chib,main="Chicago	Grocery	Stores	- Max	Lik")
+plot(density(chi2,sigma=bw2),box=FALSE,ribbon=TRUE,add=T)
+plot(chi2,cex=0.5,cols="green",add=T)
+```
+# Cumulative distance function  
+```{r}
+bw3	<- bw.frac(chi2)
+bw3
+plot(bw3)
+bw31	<- bw.frac(chi2,f=0.1)
+plot(bw31)
+plot(chib,main="Chicago	Grocery	Stores	- Cum	Distance")
+plot(density(chi2,sigma=bw3),box=FALSE,ribbon=TRUE,add=T)
+plot(chi2,cex=0.5,cols="green",add=T)
+```
+
+
+
+# adaptive density  
+```{r}
+dd2	<- adaptive.density(chi2)
+
+plot(chib,main="Chicago	Grocery	Stores")
+plot(dd2,box=FALSE,ribbon=TRUE,add=T)
+plot(chi2,cex=0.5,cols="green",add=T)
+
+dd3	<- adaptive.density(chi2,f=0.1,nrep=10)
+
+plot(chib,main="Chicago	Grocery	Stores")
+plot(dd3,box=FALSE,ribbon=TRUE,add=T)
+plot(chi2,cex=0.5,cols="green",add=T)
+```
+```{r}
+gstore	<- Gest(chi2)
+plot(gstore,main="Chicago	Grocery	Stores	- G	Function")
+
+fstore	<- Fest(chi2)
+plot(fstore,main="Chicago	Grocery Stores	- F	Function")
+
+jstore	<- Jest(chi2)
+plot(jstore,main="Chicago	Grocery	Stores	- J	Function")
+```
+
+
+

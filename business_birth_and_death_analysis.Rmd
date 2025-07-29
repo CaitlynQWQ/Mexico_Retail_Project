@@ -1,0 +1,148 @@
+---
+title: "BirthAndDeath"
+author: "Caitlyn Cai"
+date: "2023-04-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(data.table)
+library(dplyr)
+library(sf)
+```
+
+## Clean the duplicated rows for each year and combine them.
+```{r}
+df10 = data.frame(fread("D:/Download/df10.csv"))
+df20 = data.frame(fread("D:/Download/df20.csv"))
+duplicated_rows10 <- duplicated(df10[c("municipio","ageb", "manzana", "latitud", "longitud", "telefono")])
+duplicated_rows20 <- duplicated(df20[c("municipio","ageb", "manzana", "latitud", "longitud", "telefono")])
+clean_df10 <- df10[!duplicated_rows10, ]
+clean_df20 <- df20[!duplicated_rows20, ]
+clean_df10$municipio <- tolower(clean_df10$municipio)
+clean_df20$municipio <- tolower(clean_df20$municipio)
+
+clean_data <- rbind(clean_df10, clean_df20) %>% relocate(year, .after = nom_estab)
+clean_data
+```
+## Search for remaining stores  
+
+```{r}
+dim(clean_data)
+both <- duplicated(clean_data[c("municipio","ageb", "manzana", "latitud", "longitud")])
+appear_once <- clean_data[!both, ]
+# appear_once
+dim(appear_once)
+
+appear_once$"2010" <- ifelse(appear_once$year == 2010, 1, 0)
+appear_once$"2020" <- ifelse(appear_once$year == 2020, 1, 0)
+appear_once
+
+
+appear_twice <- clean_data[both, ]
+appear_twice$"2010" <- 1
+appear_twice$"2020" <- 1
+appear_twice
+```
+ 
+### To fulfill the descriptive table  
+
+```{r, warning=FALSE}
+# Overall
+ggplot(clean_data, aes(x = as.factor(clean_data$codigo_act))) + geom_histogram(stat = "count", position = "dodge") + 
+  facet_grid(row = as.factor(clean_data$year)) + 
+  geom_text(stat = "count", aes(label =after_stat(count)), vjust = -0.2) 
+
+# birth, the stores appeared in 2020 but not in 2010
+birth <- appear_once %>% filter(year == 2020)
+
+ggplot(birth, aes(x = as.factor(birth$codigo_act))) + geom_histogram(stat = "count", position = "dodge") + geom_text(stat = "count", aes(label =after_stat(count)), vjust = -0.5) + ggtitle("Birth")
+
+# death, the stores appeared in 2010 but not in 2020
+death <- appear_once %>% filter(year == 2010)
+ggplot(death, aes(x = as.factor(death$codigo_act))) + geom_histogram(stat = "count", position = "dodge") + geom_text(stat = "count", aes(label =after_stat(count)), vjust = -0.5) + ggtitle("Death")
+```
+Supermarkets 46211
+Convenience stores 462112
+Small Neighborhood Stores (i.e., Abarrotes) 461110
+Specialty stores 461190
+under supermarkets 462210
+
+
+
+```{r}
+partial_correct <- filter(clean_data, clean_data$latitud > 19)
+
+plot <- st_as_sf(partial_correct, coords = c('longitud', 'latitud'))
+ggplot(plot, aes(color = as.factor(plot$codigo_act))) + geom_sf(aes()) + facet_wrap(as.factor(plot$codigo_act))
+
+
+for (i in unique(partial_correct$municipio)) {
+  plot <- st_as_sf(filter(partial_correct, partial_correct$municipio == i), coords = c('longitud', 'latitud'))
+  print(ggplot(plot, aes(color = as.factor(plot$codigo_act))) + geom_sf(aes()) + facet_wrap(as.factor(plot$codigo_act)))
+}
+```
+
+
+```{r}
+for (i in unique(birth$municipio)) {
+  plot <- st_as_sf(filter(birth, birth$municipio == i), coords = c('longitud', 'latitud'))
+  print(ggplot(plot, aes(color = as.factor(plot$codigo_act))) + geom_sf(aes()) + facet_wrap(as.factor(plot$codigo_act)))
+}
+off_points <- filter(clean_data, clean_data$latitud < 19 | clean_data$longitud < -100)
+off_points
+write.csv(off_points, "wrong_points.csv", row.names = FALSE)
+```
+
+```{r}
+
+for (i in unique(death$municipio)) {
+  plot <- st_as_sf(filter(death, death$municipio == i), coords = c('longitud', 'latitud'))
+  print(ggplot(plot, aes(color = as.factor(plot$codigo_act))) + geom_sf(aes()) + facet_wrap(as.factor(plot$codigo_act)) + ggtitle(i))
+}
+```
+
+
+
+```{r}
+shp <- st_read("D:/Download/mx_city.shp")
+points10 <- st_read("D:/Download/MyShapefile_10.shp")
+plot(shp$geometry, main = "Stores in 2010")
+plot(points10, pch = 1, cex = 0.5,color = "blue", add = T)
+
+
+shp <- st_read("D:/Download/mx_city.shp")
+points20 <- st_read("D:/Download/MyShapefile_20.shp")
+plot(shp$geometry, main = "Stores in 2020")
+plot(points20, pch = 1, cex = 0.5, color = "blue", add = T)
+
+```
+
+
+2) Make 4 maps of the city with the number of establishments of each type by municipality. 
+You can map using tmap as shown in Brundson and Comber's book. 
+Do the same with percentages to know what percentage of all the supermarkets in the city are concentrated in each municipality.
+
+3) Estimate location quotient by municipalities for each type of establishment (i.e., number of supermarkets within municipality/total number of supermarkets in the city). Make a map for each type of establishment.
+
+
+
+
+Start learning about point pattern analysis.
+4) Read chapter 6 of Brundson and Comber book (until 6.6.) and run code simultaneously (skip interpolation) . 
+
+5) Whenever you're done, go over lab_pp1.pdf  of spatial point pattern intensity and then replicate using the data from Mexico City. (Only do quadrat count, Kernel density, min MSE, max lke, cumulative distance, adaptive density FOR EACH of the 4 types of establishments.)  Write one paragraph and show results in Rmarkdown (if you don't manage to use Rmarkdown, take screenshots of the result and add to a document). You can use the original data of the lab to make sure you're on the right track under Data>lab_data_code.
+
+
+```{r}
+library(tmap)
+install.packages("GISTools")
+
+```
+

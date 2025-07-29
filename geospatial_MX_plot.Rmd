@@ -1,0 +1,506 @@
+---
+title: "Geospatial_MX_Plot"
+author: "Caitlyn Cai"
+date: "2023-04-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyverse)
+library(sf)
+library(ggplot2)
+library(sp)
+library(maptools)
+library(spatstat)
+library(scales) # load the scales package
+library(tmap)
+library(RColorBrewer)
+```
+
+1) Fill out 2 tables in "Descriptive tab" with clean data.
+
+```{r}
+data <- read.csv("D:/Download/df_total_clean.csv")
+# birth: only appear in 2020
+birth <- data %>% filter(y2010 == 0 & y2020 == 1)
+
+type_birth <- unique(birth$type)
+birth_df <- data.frame(type = type_birth, count = NA)
+for (i in 1:length(type_birth)) {
+  birth_df$count[i] <- count(filter(birth, birth$type == type_birth[i]))$n
+}
+birth_df
+
+# death: only appear in 2010
+death <- data %>% filter(y2010 == 1 & y2020 == 0)
+
+type_death <- unique(death$type)
+death_df <- data.frame(type = type_death, count = NA)
+for (i in 1:length(type_death)) {
+  death_df$count[i] <- count(filter(death, death$type == type_death[i]))$n
+}
+death_df
+
+# alive: appear in both year
+
+alive <- data %>% filter(y2010 == 1 & y2020 == 1)
+
+type_alive <- unique(alive$type)
+alive_df <- data.frame(type = type_alive, count = NA)
+for (i in 1:length(type_alive)) {
+  alive_df$count[i] <- count(filter(alive, alive$type == type_alive[i]))$n
+}
+alive_df
+
+
+df10 <- data %>% filter(y2010 == 1)
+type_10 <- unique(df10$type)
+ten_df <- data.frame(type = type_10, count = NA, percentage = NA)
+for (i in 1:length(type_10)) {
+  ten_df$count[i] <- count(filter(df10, df10$type == type_10[i]))$n
+  ten_df$percentage[i] <- ten_df$count[i] / count(df10)$n
+ }
+ten_df
+
+df20 <- data %>% filter(y2020 == 1)
+type_20 <- unique(df20$type)
+twe_df <- data.frame(type = type_20, count = NA, percentage = NA)
+for (i in 1:length(type_20)) {
+  twe_df$count[i] <- count(filter(df20, df20$type == type_20[i]))$n
+  twe_df$percentage[i] <- twe_df$count[i] / count(df20)$n
+ }
+twe_df
+```
+
+
+
+3) Do a choropleth map for each type of establishment.
+
+4) For each establishment category, do location quotients. Estimate location quotient by municipalities for each type of establishment (i.e., number of supermarkets within municipality/total number of supermarkets in the city). Make a map for each type of establishment.  
+
+5) Replicate lab 2 only for "abarrotes" category - do all functions.
+
+6) Only using K function, analyze how much each type of establishment co-locates with itself.
+
+7) Separate categories (abarrotes + specialty) as "traditional" establishments and (convenience + supermarkets) as "modern" establishments. Use cross-K function to analyze how traditional and modern establishments co-locate.
+
+
+8) Using ALL of the dataset, use cross-K function to analyze how for each type of establishment: 
+    a) births co-locate,
+    b) deaths co-locate, and finally, 
+    c) to analyze how much births from modern establishments co-locate with traditional establishments deaths.
+
+```{r}
+data <- read.csv("D:/Download/df_total_clean.csv")
+df20 <- data %>% filter(y2020 == 1)
+```
+
+```{}
+
+WGScoor<- df20
+coordinates(WGScoor)=~longitud + latitud
+proj4string(WGScoor)<- CRS("+proj=longlat +datum=WGS84")
+
+LLcoor<-spTransform(WGScoor,CRS("+proj=longlat"))
+raster::shapefile(LLcoor, "D:/Download/MyShapefile_20.shp", overwrite = TRUE)
+```
+
+```{r}
+mx_city	<- readShapeSpatial("D:/Download/mx_city.shp")
+mx_pts <- readShapeSpatial("D:/Download/MyShapefile_20.shp")
+
+plot(mx_city,	main= "Mexico City Grocery Stores in Year 2020")
+plot(mx_pts, pch=1,cex=0.5,col="blue",add=T)
+
+
+mx_pt1	<- as.ppp(mx_pts)
+# summary(mx_pt1)
+# plot(mx_pt1) # need to unmark
+mx_pt1only <- unmark(mx_pt1)
+plot(mx_pt1only)
+
+mx_bnd <- as.owin(mx_city)
+mx2	<- mx_pt1only[mx_bnd]
+plot(mx2,main= "Mexicao City Grocery	Stores",cex=0.5,cols="blue")
+```
+```{r}
+# 
+qc <- quadratcount(mx2)
+plot(qc)
+plot(mx_bnd,main= "Mexico City Grocery	Stores in Year 2019")
+plot(intensity(qc,image=TRUE),box=FALSE,ribbon=TRUE,add=T)
+#plot(mx2,cex=0.5,cols="green",add=T)
+```
+
+## Kernel density plot  
+```{r}
+dd1	<- density(mx2)
+summary(dd1)
+plot(mx_bnd,main="Mexico City Grocery	Stores in Year 2019")
+plot(dd1,box=FALSE,ribbon=TRUE, add = T)
+#plot(mx2,cex=0.5,cols="green",add=T)
+```
+# Minimum squared error
+
+```{r}
+bw1	<- bw.diggle(mx2)
+plot(bw1)
+plot(mx_bnd,main="Mexico City Grocery	Stores in Year 2019	- Min	MSE")
+plot(density(mx2,sigma=bw1),box=FALSE,ribbon=TRUE,add=T)
+#plot(mx2,cex=0.5,cols="green",add=T)
+```
+
+# Maximizing the likelihood  
+
+```{r}
+bw2	<- bw.ppl(mx2)
+plot(bw2)
+plot(mx_bnd,main= "Mexico City Grocery	Stores in Year 2019	- Max	Likelihood")
+plot(density(mx2,sigma=bw2),box=FALSE,ribbon=TRUE,add=T)
+plot(mx2,cex=0.5,cols="green",add=T)
+```
+# Cumulative distance function  
+```{r}
+bw3	<- bw.frac(mx2)
+bw3
+# plot(bw3)
+bw31	<- bw.frac(mx2,f=0.1)
+plot(bw31)
+plot(mx_bnd,main = "Mexico City Grocery	Stores in Year 2019	- Cum	Distance")
+plot(density(mx2,sigma=bw3),box=FALSE,ribbon=TRUE,add=T)
+plot(mx2,cex=0.5,cols="green",add=T)
+```
+
+# adaptive density  
+```{r}
+dd2	<- adaptive.density(mx2)
+
+plot(mx_bnd,main="Mexico City Grocery	Stores in Year 2019 - adaptive density")
+plot(dd2,box=FALSE,ribbon=TRUE,add=T)
+plot(mx2,cex=0.5,cols="green",add=T)
+
+dd3	<- adaptive.density(mx2,f=0.1,nrep=10)
+
+plot(mx_bnd,main="Mexico City Grocery	Stores in Year 2019 - adaptive density")
+plot(dd3,box=FALSE,ribbon=TRUE,add=T)
+plot(mx2,cex=0.5,cols="green",add=T)
+```
+
+
+# Do a choropleth map for each type of establishment.
+### Super
+
+```{r}
+
+stores <-  filter(df20 ,df20$type == "super")
+store_counts <- aggregate(cbind(count = rep(1, nrow(stores))) ~ municipio, data = stores, sum)
+names(store_counts)[names(store_counts) == "municipio"] <- "muni_name"
+store_counts
+
+mx_city$muni_name <- tolower(mx_city$muni_name)
+# Merge the data frames by the lowercase "name" column
+
+mx_city_s <- merge(mx_city, store_counts, by = "muni_name")
+tm_shape(mx_city_s, title = "Choropleth Map of Supermarket") +
+tm_fill("count",
+        n = 6,
+        style = "quantile",
+        palette = "Blues") +
+tm_borders(alpha = 0.5) +
+tmap_style("classic")
+
+
+```
+
+### Convience  
+
+```{r}
+# Convience
+stores <-  filter(df20 ,df20$type == "conv")
+store_counts <- aggregate(cbind(count = rep(1, nrow(stores))) ~ municipio, data = stores, sum)
+names(store_counts)[names(store_counts) == "municipio"] <- "muni_name"
+store_counts
+
+mx_city$muni_name <- tolower(mx_city$muni_name)
+
+# Merge the data frames by the lowercase "name" column
+
+mx_city_s <- merge(mx_city, store_counts, by = "muni_name")
+mx_city_s$count[length(mx_city_s$count)] = 0
+tm_shape(mx_city_s) + tm_layout(main.title = "Choropleth Map of Convenience Store \nin Year 2019", legend.position = c("left", "top")) + 
+tm_fill("count",
+        n = 6,
+        style = "quantile",
+        palette = "-Greens") +
+tm_borders(alpha = 0.5) +
+tmap_style("classic")
+```
+
+### abarrotes  
+
+```{r}
+unique(df20$type)
+stores <-  filter(df20 ,df20$type == "abarrotes")
+
+store_counts <- aggregate(cbind(count = rep(1, nrow(stores))) ~ municipio, data = stores, sum)
+names(store_counts)[names(store_counts) == "municipio"] <- "muni_name"
+
+mx_city$muni_name <- tolower(mx_city$muni_name)
+# Merge the data frames by the lowercase "name" column
+
+# create a tmap object
+my_map <- tm_shape(mx_city_s) + 
+  tm_layout(main.title = "Choropleth Map of Abarrotes \n in Year 2019", 
+            main.title.position = "center", 
+            legend.position = c("right", "bottom"),
+            legend.outside = TRUE,
+            legend.outside.position = "right",
+            frame = FALSE) +
+  tm_fill("count",
+          n = 6,
+          style = "quantile",
+          palette = "YlOrRd") +
+  tm_borders(alpha = 0.5) + tmap_style("white")
+
+# save the map as a png file
+tmap_save(my_map, "my_map.png")
+
+```
+### specialty  
+
+```{r}
+stores <-  filter(df20 ,df20$type == "specialty")
+
+store_counts <- aggregate(cbind(count = rep(1, nrow(stores))) ~ municipio, data = stores, sum)
+names(store_counts)[names(store_counts) == "municipio"] <- "muni_name"
+store_counts
+
+mx_city$muni_name <- tolower(mx_city$muni_name)
+# Merge the data frames by the lowercase "name" column
+
+mx_city_s <- merge(mx_city, store_counts, by = "muni_name")
+tm_shape(mx_city_s, title = "Choropleth Map of Specialty") +
+tm_fill("count",
+        n = 6,
+        style = "quantile",
+        palette = "-Greens") +
+tm_borders(alpha = 0.5) +
+tmap_style("classic")
+```
+
+
+```{r}
+tm_shape(mx_city)+
+  tm_polygons(c("DEPENDENCY", "AGED"), style = c("equal", "quantile"), palette = list("Blues", "Greens"))+
+  tm_layout(legend.position = c("right", "bottom"))
+```
+
+
+#  For each establishment category, do location quotients.  
+Do a choropleth map for each type of establishment.
+Make a map for each type of establishment.  
+# compare to years, show the shading
+```{r}
+lq_set <- c()
+for (muni in unique(df20$municipio)) {
+  result <- df20 %>%
+  group_by(type) %>%
+  summarize(
+    total_estab = n(),
+    estab_in_muni = sum(municipio == muni)
+  ) %>%
+  mutate(
+    municipio = muni,
+    lq = estab_in_muni / total_estab
+  )
+  
+  lq_set <- rbind(lq_set, result)
+}
+
+stores <-  filter(lq_set,lq_set$type == "specialty")
+
+names(stores)[names(stores) == "municipio"] <- "muni_name"
+stores
+
+mx_city$muni_name <- tolower(mx_city$muni_name)
+
+mx_city_s <- merge(mx_city, stores, by = "muni_name")
+
+# qtm(mx_city_s, fill ='count', palette = "Blues", title = 'Count Map')
+
+## 
+tm_shape(mx_city_s)+
+  tm_fill("lq",
+          n = 6,
+          # style = "quantile",
+          palette = "Blues") +
+  tm_borders(alpha = 0.5) + tmap_style("classic")
+```
+```{r}
+stores <-  filter(lq_set,lq_set$type == "super")
+
+names(stores)[names(stores) == "municipio"] <- "muni_name"
+stores
+
+mx_city$muni_name <- tolower(mx_city$muni_name)
+
+mx_city_s <- merge(mx_city, stores, by = "muni_name")
+
+# qtm(mx_city_s, fill ='count', palette = "Blues", title = 'Count Map')
+
+
+
+my_map <- tm_shape(mx_city_s) + 
+  tm_layout(main.title = "Choropleth Map of Abarrotes \n in Year 2019", 
+            main.title.position = "center", 
+            legend.position = c("right", "bottom"),
+            legend.outside = TRUE,
+            legend.outside.position = "right",
+            frame = FALSE) +
+  tm_fill("lq",
+          style = "quantile",
+          palette = "Blues") +
+  tm_borders(alpha = 0.5) + tmap_style("white")
+my_map
+
+```
+```{r}
+stores <-  filter(lq_set,lq_set$type == "abarrotes")
+
+names(stores)[names(stores) == "municipio"] <- "muni_name"
+stores
+
+mx_city$muni_name <- tolower(mx_city$muni_name)
+mx_city_s <- merge(mx_city, stores, by = "muni_name")
+
+# qtm(mx_city_s, fill ='count', palette = "Blues", title = 'Count Map')
+
+
+tm_shape(mx_city_s)+
+  tm_fill("lq",
+          n = 6,
+          # style = "quantile",
+          palette = "Reds") +
+  tm_borders(alpha = 0.5) + tmap_style("classic")
+```
+```{r}
+stores <-  filter(lq_set,lq_set$type == "conv")
+
+names(stores)[names(stores) == "municipio"] <- "muni_name"
+stores
+
+mx_city$muni_name <- tolower(mx_city$muni_name)
+
+mx_city_s <- merge(mx_city, stores, by = "muni_name")
+
+
+
+tm_shape(mx_city_s)+
+  tm_fill("lq",
+          n = 6,
+          # style = "quantile",
+          palette = "Blues") +
+  tm_borders(alpha = 0.5)
+```
+
+### 三个函数 2019
+
+```{r}
+# 6) abarrotes
+df_abarrotes <- df20 %>% filter(type == "abarrotes")
+
+df_abarrotes
+mx_city	<- readShapeSpatial("D:/Download/mx_city.shp")
+abarrotes_pts <- readShapeSpatial("D:/Download/MyShapefile_20_abarrotes.shp")
+# plot(mx_city,	main= "Mexico City Abarrotes in Year 2020")
+abarrotes_pts	<- as.ppp(abarrotes_pts)
+abarrotes_pt1only <- unmark(abarrotes_pts)
+
+mx_bnd <- as.owin(mx_city)
+abarrotes_2	<- abarrotes_pt1only[mx_bnd]
+plot(abarrotes_2,main= "Mexicao City Abarrotes Storesin Year 2019",cex=0.5,cols="blue")
+
+# par(mfrow = c(3, 1))
+gstore	<- Gest(abarrotes_2)
+plot(gstore,main= "Mexico City Abarrotes in Year 2019	- G Function")
+
+fstore	<- Fest(abarrotes_2)
+plot(fstore,main= "Mexico City Abarrotes in Year 2019	- F Function")
+
+jstore	<- Jest(abarrotes_2)
+plot(jstore,main= "Mexico City Abarrotes in Year 2019	- J Function")
+
+png("jstore_2019.png", width = 800, height = 600)
+
+jstore	<- Jest(abarrotes_2)
+plot(jstore,main= "Mexico City Abarrotes in Year 2019	- J Function")
+
+# Close the png device and save the plot as a png file
+dev.off()
+```
+### 三个函数 2010
+
+```{r}
+# 6) abarrotes
+df10_abarrotes <- df10 %>% filter(type == "abarrotes")
+
+df10_abarrotes
+mx_city	<- readShapeSpatial("D:/Download/mx_city.shp")
+abarrotes_pts <- readShapeSpatial("D:/Download/MyShapefile_10_abarrotes.shp")
+abarrotes_pts	<- as.ppp(abarrotes_pts)
+abarrotes_pt1only <- unmark(abarrotes_pts)
+
+mx_bnd <- as.owin(mx_city)
+abarrotes_2	<- abarrotes_pt1only[mx_bnd]
+plot(abarrotes_2,main= "Mexicao City Abarrotes Storesin Year 2019",cex=0.5,cols="blue")
+
+gstore	<- Gest(abarrotes_2)
+plot(gstore,main= "Mexico City Abarrotes in Year 2010	- G Function")
+
+fstore	<- Fest(abarrotes_2)
+plot(fstore,main= "Mexico City Abarrotes in Year 2010	- F Function")
+
+jstore	<- Jest(abarrotes_2)
+plot(jstore,main= "Mexico City Abarrotes in Year 2010	- J Function")
+```
+7) Separate categories (abarrotes + specialty) as "traditional" establishments and (convenience + supermarkets) as "modern" establishments. Use cross-K function to analyze how traditional and modern establishments co-locate.
+
+```{r}
+unique(df20$type)
+
+df20$style <- ifelse(df20$type %in% c("abarrotes", "specialty"), "traditional", "modern")
+
+trad_point	<- readShapeSpatial("D:/Download/MyShapefile_20_trad.shp")
+trad_pt1	<- as.ppp(trad_point)
+trad_only	<- unmark(trad_pt1)
+mx_bnd <- as.owin(mx_city)
+trad2	<- trad_only[mx_bnd]
+plot(trad2,main= "Traditional Stores",cex=0.5,cols="blue")
+
+
+mod_point	<- readShapeSpatial("D:/Download/MyShapefile_20_mod.shp")
+mod_pt1	<- as.ppp(mod_point)
+mod_only	<- unmark(mod_pt1)
+mx_bnd <- as.owin(mx_city)
+mod2	<- mod_only[mx_bnd]
+plot(mod2,main= "Modern Stores",cex=0.5,cols="tomato")
+
+
+allpt	= superimpose("Traditional"=trad2,"Modern"=mod2,W=mx_bnd)
+
+KCall	<- Kcross(allpt, "Traditional", "Modern")
+plot(KCall)
+```
+```
+
+8) Using ALL of the dataset, use cross-K function to analyze how for each type of establishment: 
+    a) births co-locate,
+    b) deaths co-locate, 
+    c) to analyze how much births from modern establishments co-locate with traditional establishments deaths.
+    
+```{r}
+
+```
+

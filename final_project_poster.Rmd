@@ -1,0 +1,328 @@
+---
+title: "geospatial_final_present"
+author: "Caitlyn Cai"
+date: "2023-04-27"
+output: html_document
+---
+
+
+```{}
+install.packages("MexBrewer")
+
+if (!require("remotes")) install.packages("remotes")
+remotes::install_github("paezha/MexBrewer")
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(MexBrewer)
+library(dplyr)
+library(tidyverse)
+library(sf)
+library(ggplot2)
+library(sp)
+library(maptools)
+library(spatstat)
+library(scales) # load the scales package
+library(tmap)
+library(RColorBrewer)
+```
+
+
+```{r}
+data <- read.csv("D:/Download/df_total_clean.csv")
+data$style <- ifelse(data$type %in% c("abarrotes", "specialty"), "traditional", "modern")
+df20 <- data %>% filter(y2020 == 1)
+df10 <- data %>% filter(y2010 == 1)
+```
+
+```{r}
+mx_city	<- readShapeSpatial("D:/Download/mx_city.shp")
+
+
+plot(mx_city,	main= "Mexico City Grocery Stores in Year 2020")
+
+mx_bnd <- as.owin(mx_city)
+par(mar=c(3,4,2,2))
+display.brewer.all()
+
+mybreaks <- c(0, 0.01, 0.05, 0.1, 0.15, 0.25)
+mylabels <- c("0.000 - 0.010", "0.010 - 0.050", "0.050 - 0.100", "0.100 - 0.150", "0.150 - 0.250")
+```
+
+### Traditional Store in 2019
+```{r}
+mypalette<-brewer.pal(2,"YlOrRd")
+lq_set <- c()
+for (muni in unique(df20$municipio)) {
+  result <- df20 %>%
+  group_by(style) %>%
+  summarize(
+    total_estab = n(),
+    estab_in_muni = sum(municipio == muni)
+  ) %>%
+  mutate(
+    municipio = muni,
+    lq = estab_in_muni / total_estab
+  )
+  
+  lq_set <- rbind(lq_set, result)
+}
+
+stores <-  filter(lq_set,lq_set$style == "traditional")
+
+names(stores)[names(stores) == "municipio"] <- "muni_name"
+stores
+
+mx_city$muni_name <- tolower(mx_city$muni_name)
+
+mx_city_s <- merge(mx_city, stores, by = "muni_name")
+
+
+trad_2019 <- tm_shape(mx_city_s)+
+  tm_fill("lq", 
+          # style = "quantile", 
+          palette = mypalette,
+          breaks = mybreaks,
+          labels = mylabels) +
+  tm_layout(main.title = "Distribution of Traditional Store \nwith Location Quotient \nin 2019",
+            main.title.position = "center",
+            main.title.size = 2,
+            legend.height = 0.75, 
+            legend.width = 0.65,
+            legend.outside = TRUE,
+            legend.position = c("right", "bottom"),
+            frame = FALSE) +
+  tm_borders(alpha = 0.5) 
+tmap_save(trad_2019, "trad_2019.png")
+trad_2019
+```
+
+
+
+### Traditional Store in 2010
+```{r}
+mypalette<-brewer.pal(2,"YlOrRd")
+lq_set <- c()
+for (muni in unique(df10$municipio)) {
+  result <- df10 %>%
+  group_by(style) %>%
+  summarize(
+    total_estab = n(),
+    estab_in_muni = sum(municipio == muni)
+  ) %>%
+  mutate(
+    municipio = muni,
+    lq = estab_in_muni / total_estab
+  )
+  
+  lq_set <- rbind(lq_set, result)
+}
+max(lq_set$lq)
+stores <-  filter(lq_set,lq_set$style == "traditional")
+
+names(stores)[names(stores) == "municipio"] <- "muni_name"
+stores
+
+mx_city$muni_name <- tolower(mx_city$muni_name)
+
+mx_city_s <- merge(mx_city, stores, by = "muni_name")
+
+
+trad_2010 <- tm_shape(mx_city_s)+
+  tm_fill("lq", 
+          # style = "quantile", 
+          palette = mypalette,
+          breaks = mybreaks,
+          labels = mylabels) +
+  tm_layout(main.title = "Distribution of Traditional Store \nwith Location Quotient \nin 2010",
+            main.title.position = "center",
+            main.title.size = 2,
+            legend.height = 0.75, 
+            legend.width = 0.65,
+            legend.outside = TRUE,
+            legend.position = c("right", "bottom"),
+            frame = FALSE) +
+  tm_borders(alpha = 0.5) 
+tmap_save(trad_2010, "trad_2010.png")
+
+
+# Plot the map with the adjusted legend
+tm_shape(mx_city_s)+
+  tm_fill("lq", 
+          # style = "quantile", 
+          palette = mypalette,
+          breaks = mybreaks,
+          labels = mylabels) +
+  tm_layout(main.title = "Distribution of Traditional Store \nwith Location Quotient \nin 2010",
+            main.title.position = "center",
+            main.title.size = 2,
+            legend.height = 0.75, 
+            legend.width = 0.65,
+            legend.outside = TRUE,
+            legend.position = c("right", "bottom"),
+            frame = FALSE) +
+  tm_borders(alpha = 0.5) 
+
+```
+
+### Modern Store in 2019  
+```{r}
+mypalette<-brewer.pal(4,"Greens") # Another color for modern store
+lq_set <- c()
+for (muni in unique(df20$municipio)) {
+  result <- df20 %>%
+  group_by(style) %>%
+  summarize(
+    total_estab = n(),
+    estab_in_muni = sum(municipio == muni)
+  ) %>%
+  mutate(
+    municipio = muni,
+    lq = estab_in_muni / total_estab
+  )
+  
+  lq_set <- rbind(lq_set, result)
+}
+
+stores <-  filter(lq_set,lq_set$style == "modern")
+
+names(stores)[names(stores) == "municipio"] <- "muni_name"
+stores
+
+mx_city$muni_name <- tolower(mx_city$muni_name)
+
+mx_city_s <- merge(mx_city, stores, by = "muni_name")
+
+mod_2019 <- tm_shape(mx_city_s)+
+  tm_fill("lq", 
+          # style = "quantile", 
+          palette = mypalette,
+          breaks = mybreaks,
+          labels = mylabels) +
+  tm_layout(main.title = "Distribution of Modern Store \nwith Location Quotient \nin 2019",
+            main.title.position = "center",
+            main.title.size = 2,
+            legend.height = 0.75, 
+            legend.width = 0.65,
+            legend.outside = TRUE,
+            legend.position = c("right", "bottom"),
+            frame = FALSE) +
+  tm_borders(alpha = 0.5) 
+tmap_save(mod_2019, "mod_2019.png")
+mod_2019
+```
+
+### Modern Store in 2010  
+
+```{r}
+lq_set <- c()
+for (muni in unique(df10$municipio)) {
+  result <- df10 %>%
+  group_by(style) %>%
+  summarize(
+    total_estab = n(),
+    estab_in_muni = sum(municipio == muni)
+  ) %>%
+  mutate(
+    municipio = muni,
+    lq = estab_in_muni / total_estab
+  )
+  
+  lq_set <- rbind(lq_set, result)
+}
+
+stores <-  filter(lq_set,lq_set$style == "modern")
+
+names(stores)[names(stores) == "municipio"] <- "muni_name"
+stores
+
+mx_city$muni_name <- tolower(mx_city$muni_name)
+
+mx_city_s <- merge(mx_city, stores, by = "muni_name")
+
+
+mod_2010 <- tm_shape(mx_city_s)+
+  tm_fill("lq", 
+          # style = "quantile", 
+          palette = mypalette,
+          breaks = mybreaks,
+          labels = mylabels) +
+  tm_layout(main.title = "Distribution of Modern Store \nwith Location Quotient \nin 2010",
+            main.title.position = "center",
+            main.title.size = 2,
+            legend.height = 0.75, 
+            legend.width = 0.65,
+            legend.outside = TRUE,
+            legend.position = c("right", "bottom"),
+            frame = FALSE) +
+  tm_borders(alpha = 0.5) 
+tmap_save(mod_2010, "mod_2010.png")
+mod_2010
+```
+
+```{r}
+df20 %>% filter(df20$status == "traditional")
+mx_city	<- readShapeSpatial("D:/Download/mx_city.shp")
+pts_20 <- readShapeSpatial("D:/Download/MyShapefile_20_trad.shp")
+pts_20 <- as.ppp(pts_20)
+pts_20_pt1only <- unmark(pts_20)
+
+mx_bnd <- as.owin(mx_city)
+pts_20	<- pts_20_pt1only[mx_bnd]
+plot(pts_20,main= "Mexicao City Traditional Stores in Year 2019",cex=0.5,cols="blue")
+
+gstore	<- Gest(pts_20)
+plot(gstore,main= "Mexico City Traditional in Year 2019	- G Function")
+
+fstore	<- Fest(pts_20)
+plot(fstore,main= "Mexico City Abarrotes in Year 2019	- F Function")
+
+
+```
+
+```{r}
+df10 %>% filter(df10$status == "traditional")
+mx_city	<- readShapeSpatial("D:/Download/mx_city.shp")
+pts_10 <- readShapeSpatial("D:/Download/MyShapefile_10_abarrotes.shp")
+pts_10 <- as.ppp(pts_10)
+pts_10_pt1only <- unmark(pts_10)
+
+mx_bnd <- as.owin(mx_city)
+pts_10	<- pts_10_pt1only[mx_bnd]
+plot(pts_10,main= "Mexicao City Traditional Stores in Year 2010",cex=0.5,cols="blue")
+
+gstore	<- Gest(pts_10)
+plot(gstore,main= "Mexico City Traditional in Year 2010	- G Function")
+
+fstore	<- Fest(pts_10)
+plot(fstore,main= "Mexico City Abarrotes in Year 2010	- F Function")
+
+par(mfrow = c(1,2))
+
+jstore10	<- Jest(pts_10, 0.01)
+plot(jstore10,main= "Mexico City Abarrotes \nin Year 2010	- J Function", lwd = 2)
+jstore19	<- Jest(pts_20)
+plot(jstore19,main= "Mexico City Abarrotes \nin Year 2019	- J Function", lwd = 2)
+```
+
+
+```{}
+WGScoor<- data
+coordinates(WGScoor)=~longitud + latitud
+proj4string(WGScoor)<- CRS("+proj=longlat +datum=WGS84")
+
+LLcoor<-spTransform(WGScoor,CRS("+proj=longlat"))
+raster::shapefile(LLcoor, "D:/Download/MyShapefile_all.shp", overwrite = TRUE)
+```
+
+Maybe mention here the 4 type of stores we analyzed? and say that the traditional stores would be small neighborhood stores (abarrotes) and specialty stores in contrast to "modern" stores that would be supermarkets and convenience stores?
+
+The four types of stores can be classified into two categories: traditional stores, including small neighborhood stores (abarrotes) and specialty stores, and modern stores, including supermarkets and convenience stores.
+
+Conclusion:
+The J function analysis suggests that the spatial clustering of traditional stores has changed more clustered over time.
+
+The J function analysis suggests that the spatial clustering of traditional stores has changed over time. By comparing the LQ values for modern and traditional stores in Mexico City between 2010 and 2019, we observe a decrease in the maximum LQ value for modern stores in 2019,  modern stores are mostly located in the northeast part of the city.
+
+Three municipalities showed a more significant decrease in LQ values for traditional stores. Modern stores are mostly clustered in the northern part of the city, and there is a tendency to cluster from the northwest to the southeast.

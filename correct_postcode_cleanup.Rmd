@@ -1,0 +1,120 @@
+---
+title: "Correct Zip Code_MX"
+author: "Caitlyn Cai"
+date: "2023-03-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(data.table)
+
+library(tidyverse)
+library(sf)
+library(raster)
+library(terra)
+library(tmap)
+```
+
+```{r}
+df10 = data.frame(fread("D:/Download/df10.csv"))
+df20 = data.frame(fread("D:/Download/df20.csv"))
+# combine two-year data set
+data <- rbind(df10, df20) %>% relocate(year, .after = nom_estab)
+# get the post code
+post <- data$cod_postal
+# check digit
+unique(nchar(post))
+filter(data, nchar(data$cod_postal) == 1)
+
+# There exists one variable that postal code is 0.
+
+# converted as 5-digit postal code
+post_formatted <- sprintf("%05d", post)
+#post_formatted
+
+# check the digit of postal code
+unique(nchar(post_formatted)) # only 5-digit
+
+# check if every code is normal
+all(substr(post_formatted, 1, 1) %in% c("0", "1")) # false
+
+# get the abnormal values
+abnormal <- subset(post_formatted, !(substr(post_formatted, 1, 1) %in% c("0", "1")))
+abnormal <- c(abnormal, "0")
+
+# filter them from our data set
+wrong_post <- data %>% filter(data$cod_postal %in% abnormal)
+wrong_post
+dim(wrong_post) # 198 points
+
+# Map them out
+wrong_pts <- st_as_sf(wrong_post, coords = c('longitud', 'latitud'))
+ggplot(wrong_pts) + geom_sf(aes()) + xlim(-99.5,-98.9) + ylim(19.1,19.8)
+```
+
+```{r}
+unique(wrong_post$cod_postal)
+```
+
+```{}
+# Just an attempt, not sure if this a good way to correct the post code.
+library(ggmap)
+ggmap::register_google()
+# Example latitude and longitude
+latitude <- 19.48176	
+longitude <- -99.14668
+
+# Get the zip code
+revgeocode_result <- revgeocode(c(longitude, latitude), output = "address")
+zip <- substr(revgeocode_result, 1, 5)
+
+# Print the zip code
+cat(sprintf("The latitude %.5f and longitude %.5f is located in zip code %s", latitude, longitude, zip))
+```
+
+There is a lint I found which is useful to check the postal code.
+https://www.google.com/maps/d/u/0/viewer?mid=1qj0vH4WgxRc-IZqyFBPtqeD6Cqz1xxIq&ll=19.2534241804046%2C-99.08771258607105&z=11
+
+After checking the problematic postal code, I speculate that there are different types of errors here. The errors such as "50000", "41100", may be caused by adding a 0 to the last digit by mistake. But I'm not sure what happened in those errors like "51235" or "99999", these values look like it was filled in intentionally, but I can't understand the intent. And there is only one variable which postal code is 0, I guess "0" might be as same as NA.
+
+```{r}
+# If my first assumption above is right:
+# Check if the last digit is 0
+trim0 <- ifelse(substr(wrong_post$cod_postal, nchar(wrong_post$cod_postal), nchar(wrong_post$cod_postal)) == "0",
+       # If the last digit is 0, remove it
+       substr(wrong_post$cod_postal, 1, nchar(wrong_post$cod_postal) - 1),
+       # If the last digit is not 0, leave the string unchanged
+       wrong_post$cod_postal)
+werid_errors <- subset(trim0, nchar(trim0) == 5)
+
+filter(data, data$cod_postal %in% werid_errors)
+```
+
+```{r}
+library(tidyverse)
+library(forcats)
+library(broom)
+library(wbstats)
+library(wordcloud)
+library(tidytext)
+library(viridis)
+
+set.seed(1234)
+theme_set(theme_minimal())
+
+```
+
+```{r}
+df10 = data.frame(fread("D:/Download/df10.csv"))
+df20 = data.frame(fread("D:/Download/df20.csv"))
+# combine two-year data set
+data <- rbind(df10, df20) %>% relocate(year, .after = nom_estab)
+# get the post code
+```
+
+
+

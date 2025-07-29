@@ -1,0 +1,39 @@
+---
+title: "week04"
+author: "Caitlyn Cai"
+date: "2023-03-05"
+output: html_document
+---
+
+```{r}
+library(sp)
+library(maptools)
+library(spatstat)
+library(sf)
+library(foreign)
+library(ggplot2)
+library(tidyverse)
+df10 <- read.csv("D:/Download/df10.csv")
+df20 <- read.csv("D:/Download/df20.csv")
+```
+
+## Attempt 01
+```{}
+library(mapview)
+df10 <- df10 %>% glimpse()
+mapview(df10, xcol = "longitud", ycol = "latitud", crs = 4269, grid = FALSE)
+
+df20 <- df20 %>% glimpse()
+mapview(df20, xcol = "longitud", ycol = "latitud", crs = 4269, grid = FALSE)
+```
+
+
+## Attempt 02
+```{r}
+df10 <- st_as_sf(df10, coords = c('longitud', 'latitud'))
+ggplot(df10) + geom_sf(aes())
+
+
+df20 <- st_as_sf(df20, coords = c('longitud', 'latitud'))
+ggplot(df20) + geom_sf(aes())
+```
